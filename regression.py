@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from scipy.stats import t, f
+from tabulate import tabulate
 
 # GENERATE DATA
 # samples
@@ -105,7 +106,7 @@ class SLR:
         p_B1 = t.sf(T_B1, self.df_res) * 2
         p_B0 = t.sf(T_B0, self.df_res) * 2
         
-        return T_B0, T_B1, p_B0, p_B1
+        return [[T_B0, T_B1], [p_B0, p_B1]]
         
     def F_test(self):
         y_pred = self.predict(self.X)
@@ -124,14 +125,48 @@ class SLR:
         y_dev = (self.y - self.predict(self.X))
         return -self.n * np.log(2 * np.pi * self.pop_var) / 2 + np.dot(y_dev, y_dev) / (2 * self.pop_var)
     
+    def skewness(self):
+        y_pred = self.predict(self.X)
+        e = self.y - y_pred
+        m3 = np.sum(e ** 3) / self.n
+        m2 = np.sum(e ** 2) / self.n
+        return m3/(m2 ** 1.5)
+    
+    def kurtosis(self):
+        y_pred = self.predict(self.X)
+        e = self.y - y_pred
+        m4 = np.sum(e ** 4) / self.n
+        m2 = np.sum(e ** 2) / self.n
+        return m4 / (m2 ** 2)
+    
+    def durbin_watson(self):
+        y_pred = self.predict(self.X)
+        e = self.y - y_pred
+        return np.sum(np.ediff1d(e) ** 2) / np.sum(e ** 2)
+    
     def summary(self):
-        print(self.coef)
-        print("R-squared", self.var_coeff())
-        print("Adj. R-squared", self.adj_var_coeff())
-        print("variance of estimator: ", self.var_estimator())
-        print("t statistic: ", self.t_test())
-        print("F statistic", self.F_test())
-        print("log likelihood: ", self.log_likelihood())
+        results = [
+                ["intercept", "slope"],
+                [self.B0, self.B1],
+                list(self.var_estimator()),
+            ]
+        results = results + self.t_test()
+        results = np.array(results)
+        
+        summary = []
+        summary.append(["R-squared", self.var_coeff()])
+        summary.append(["Adj. R-squared", self.adj_var_coeff()])
+        F = self.F_test()
+        summary.append(["F statistic", F[0]])
+        summary.append(["Prob (F statistic)", F[1]])
+        summary.append(["log likelihood: ", self.log_likelihood()])
+        summary.append(["skewness: ", self.skewness()])
+        summary.append(["kurtosis: ", self.kurtosis()])
+        summary.append(["durbin-watson: ", self.durbin_watson()])
+        
+        
+        print(tabulate(summary, tablefmt="psql"))
+        print(tabulate(results.T, headers = ['', 'coefficients', "std err.", "t", "P>|t|"], tablefmt="presto"))
 
         
 model = SLR(y, X)
