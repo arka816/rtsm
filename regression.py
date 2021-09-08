@@ -1,6 +1,13 @@
 """
     SIMPLE LINEAR REGRESSION IMPLEMENTED FROM SCRATCH
     AS PART OF THE COURSE RTSM (MA31020)
+    
+    Both X and Y are stochastic variables.
+    X has been sampled from an uniform distribution.
+    The regression model is:
+        Y_i = B0 + B1 * X_i + E_i
+    where E_i is gaussian noise.
+    Homoskedastic noise has been assumed.
 """
 
 import numpy as np
@@ -51,9 +58,17 @@ class SLR:
         X_dev = (self.X - X_mean)
         S_xy = np.dot(X_dev, self.y)
         S_xx = np.dot(X_dev, X_dev)
+        
+        # estimate the regression parameters
         self.B1 = S_xy / S_xx
         self.B0 = np.mean(self.y) - self.B1 * X_mean
         self.coef = {"intercept": self.B0, "slope": self.B1}
+        
+        y_dev = self.y - np.mean(self.y)
+        S_yy = np.dot(y_dev, y_dev)
+        
+        # estimate the population variance
+        self.pop_var = (S_yy - (S_xy ** 2) / S_xx) / (self.n - 2)
         
     def predict(self, X):
         return self.B0 + self.B1 * X
@@ -71,6 +86,10 @@ class SLR:
         return 1 - ((1 - var_coeff) * (self.n-1) / (self.n - self.p - 1))
     
     def var_estimator(self):
+        # Estimates the distribution
+        # of the estimates of the regression
+        # coefficients and population variance
+        
         X_mean = np.mean(self.X)
         X_dev = (self.X - X_mean)
         y_dev = self.y - np.mean(self.y)
@@ -87,7 +106,7 @@ class SLR:
         self.se_B0 = np.sqrt(B0_var)
         self.se_B1 = np.sqrt(B1_var)
         
-        return self.se_B0, self.se_B1
+        return self.se_B0, self.se_B1, np.sqrt(2 * self.pop_var / (self.n - 2))
     
     def t_test(self):
         # Performs a t test on the parameter
@@ -106,9 +125,17 @@ class SLR:
         p_B1 = t.sf(T_B1, self.df_res) * 2
         p_B0 = t.sf(T_B0, self.df_res) * 2
         
-        return [[T_B0, T_B1], [p_B0, p_B1]]
+        return [[T_B0, T_B1, None], [p_B0, p_B1, None]]
         
     def F_test(self):
+        # Performs a t test on the parameter
+        # estimates with null hypothesis
+        # H0: Bi = 0 for all i
+        # and alternative hypothesis
+        # H1: Bi != 0 for all i
+        # tests whether the model performs better than
+        # a model with vanishing coefficients
+        
         y_pred = self.predict(self.X)
         SS_res = np.sum((y_pred - self.y) ** 2)
         SS_model = np.sum((y_pred - np.mean(self.y)) ** 2)
@@ -140,14 +167,15 @@ class SLR:
         return m4 / (m2 ** 2)
     
     def durbin_watson(self):
+        # test for homoskedasticity
+        
         y_pred = self.predict(self.X)
         e = self.y - y_pred
         return np.sum(np.ediff1d(e) ** 2) / np.sum(e ** 2)
     
     def summary(self):
         results = [
-                ["intercept", "slope"],
-                [self.B0, self.B1],
+                [self.B0, self.B1, self.pop_var],
                 list(self.var_estimator()),
             ]
         results = results + self.t_test()
@@ -166,7 +194,7 @@ class SLR:
         
         
         print(tabulate(summary, tablefmt="psql"))
-        print(tabulate(results.T, headers = ['', 'coefficients', "std err.", "t", "P>|t|"], tablefmt="presto"))
+        print(tabulate(results.T, headers = ['coefficients', "std err.", "t", "P>|t|"], tablefmt="presto"))
 
         
 model = SLR(y, X)
