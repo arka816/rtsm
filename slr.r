@@ -12,7 +12,7 @@
 
 ## SAMPLE GENERATION
 # sample size
-N <- 100
+N <- 1000
 p <- 2
 # regression coefficients
 b0 <- 2
@@ -39,7 +39,7 @@ fit <- function(X, y){
   B0 <<- y_mean - B1 * X_mean
   
   # estimate the population variance
-  pop_var <<- (S_yy - (S_xy ** 2) / S_xx) / (N - 2)
+  pop_var <<- (S_yy - (S_xy ** 2) / S_xx) / (N - p)
   
   return (c(B0, B1, pop_var))
 }
